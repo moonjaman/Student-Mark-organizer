@@ -1,3 +1,119 @@
+#include<iostream>
+#include<vector>
+#include<tuple>
+#include<fstream>
+#include<algorithm>
+#include<iomanip>
+using namespace std;
+
+/*
+tuple:
+0 = Subject Name
+1 = Marks
+2 = Teacher Initial
+*/
+
+struct Student{
+    string id,name;
+    vector<tuple<string,double,string>> info;
+};
+
+vector<Student> students;
+
+string fileName="student_mark.txt";
+string adminPass="admin";
+
+// ---------- Average ----------
+double avg(Student s){
+
+    double sum=0;
+
+    for(auto x:s.info)
+        sum+=get<1>(x);
+
+    return s.info.empty()?0:sum/s.info.size();
+}
+
+// ---------- Find Student ----------
+int getIndex(string key){
+
+    for(int i=0;i<students.size();i++)
+        if(students[i].id==key)
+            return i;
+
+    return -1;
+}
+
+// ---------- Save ----------
+void saveFile(){
+
+    ofstream fout(fileName);
+
+    for(auto s:students){
+
+        fout<<s.id<<"|"<<s.name<<"|"<<s.info.size();
+
+        for(auto x:s.info)
+            fout<<"|"
+                <<get<0>(x)<<"|"
+                <<get<1>(x)<<"|"
+                <<get<2>(x);
+
+        fout<<endl;
+    }
+}
+
+// ---------- Load ----------
+void loadFile(){
+
+    ifstream fin(fileName);
+    if(!fin) return;
+
+    string line;
+
+    while(getline(fin,line)){
+
+        vector<string> data;
+        string temp="";
+
+        for(char ch:line){
+
+            if(ch=='|'){
+                data.push_back(temp);
+                temp="";
+            }
+            else temp+=ch;
+        }
+
+        data.push_back(temp);
+
+        if(data.size()<3) continue;
+
+        Student s;
+
+        s.id=data[0];
+        s.name=data[1];
+
+        int n=stoi(data[2]),idx=3;
+
+        for(int i=0;i<n;i++){
+
+            if(idx+2>=data.size()) break;
+
+            string sub=data[idx++];
+            double mark=stod(data[idx++]);
+            string teacher=data[idx++];
+
+            s.info.push_back(
+                {sub,mark,teacher}
+            );
+        }
+
+        students.push_back(s);
+    }
+}
+
+
 // =================================================
 // ADMIN PANEL
 // =================================================
@@ -310,5 +426,4 @@ void adminPanel(){
 
     }while(ch!=0);
 }
-
 
