@@ -1,54 +1,88 @@
-#include <iostream>
-#include <vector>
-#include <fstream>
-#include <algorithm>
-#include <iomanip>
-#include <set>
+#include<iostream>
+#include<vector>
+#include<tuple>
+#include<fstream>
+#include<algorithm>
+#include<iomanip>
 using namespace std;
+
+/*
+tuple:
+0 = Subject Name
+1 = Marks
+2 = Teacher Initial
+*/
 
 struct Student{
     string id,name;
-    vector<pair<string,double>> sub;
+    vector<tuple<string,double,string>> info;
 };
 
 vector<Student> students;
-string fileName="student_data.txt";
+
+string fileName="student_mark.txt";
+string adminPass="admin";
 
 // ---------- Average ----------
 double avg(Student s){
+
     double sum=0;
-    for(auto x:s.sub) sum+=x.second;
-    return s.sub.empty()?0:sum/s.sub.size();
+
+    for(auto x:s.info)
+        sum+=get<1>(x);
+
+    return s.info.empty()?0:sum/s.info.size();
+}
+
+// ---------- Find Student ----------
+int getIndex(string key){
+
+    for(int i=0;i<students.size();i++)
+        if(students[i].id==key)
+            return i;
+
+    return -1;
 }
 
 // ---------- Save ----------
 void saveFile(){
+
     ofstream fout(fileName);
 
     for(auto s:students){
-        fout<<s.id<<"|"<<s.name<<"|"<<s.sub.size();
-        for(auto x:s.sub)
-            fout<<"|"<<x.first<<"|"<<x.second;
+
+        fout<<s.id<<"|"<<s.name<<"|"<<s.info.size();
+
+        for(auto x:s.info)
+            fout<<"|"
+                <<get<0>(x)<<"|"
+                <<get<1>(x)<<"|"
+                <<get<2>(x);
+
         fout<<endl;
     }
 }
 
 // ---------- Load ----------
 void loadFile(){
+
     ifstream fin(fileName);
     if(!fin) return;
 
     string line;
 
     while(getline(fin,line)){
+
         vector<string> data;
         string temp="";
 
         for(char ch:line){
+
             if(ch=='|'){
                 data.push_back(temp);
                 temp="";
-            }else temp+=ch;
+            }
+            else temp+=ch;
         }
 
         data.push_back(temp);
@@ -56,101 +90,69 @@ void loadFile(){
         if(data.size()<3) continue;
 
         Student s;
+
         s.id=data[0];
         s.name=data[1];
 
         int n=stoi(data[2]),idx=3;
 
         for(int i=0;i<n;i++){
-            if(idx+1>=data.size()) break;
-            s.sub.push_back({data[idx],stod(data[idx+1])});
-            idx+=2;
+
+            if(idx+2>=data.size()) break;
+
+            string sub=data[idx++];
+            double mark=stod(data[idx++]);
+            string teacher=data[idx++];
+
+            s.info.push_back(
+                {sub,mark,teacher}
+            );
         }
 
         students.push_back(s);
     }
 }
 
-// ---------- Check ID ----------
-bool foundID(string key){
-    for(auto s:students)
-        if(s.id==key) return true;
-    return false;
-}
+// =================================================
+// ADMIN PANEL
+// =================================================
 
-// ---------- Dynamic Subject List ----------
-string chooseSubject(){
-
-    set<string> subjectSet;
-
-    for(auto s:students)
-        for(auto x:s.sub)
-            subjectSet.insert(x.first);
-
-    if(subjectSet.empty()){
-        cout<<"No Subject Found!\n";
-        return "";
-    }
-
-    vector<string> list(subjectSet.begin(),subjectSet.end());
-
-    cout<<"\n======= Subject List =======\n";
-
-    for(int i=0;i<list.size();i++)
-        cout<<i+1<<". "<<list[i]<<endl;
-
-    int ch;
-    cout<<"Choose Subject: ";
-    cin>>ch;
-
-    if(ch<1 || ch>list.size()) return "";
-
-    return list[ch-1];
-}
-
-// ---------- Add ----------
 void addStudent(){
 
     Student s;
     int n;
 
-    cout<<"\n========== Add Student ==========\n";
-
-    cout<<"Enter ID   : ";
+    cout<<"\nEnter ID: ";
     cin>>s.id;
 
-    if(foundID(s.id)){
+    if(getIndex(s.id)!=-1){
         cout<<"ID Already Exists!\n";
         return;
     }
 
     cin.ignore();
 
-    cout<<"Enter Name : ";
+    cout<<"Enter Name: ";
     getline(cin,s.name);
 
-    cout<<"Total Subjects: ";
+    cout<<"How Many Subjects: ";
     cin>>n;
 
     for(int i=1;i<=n;i++){
 
-        string name;
-        double mark;
+        string sub,teach;
 
         cin.ignore();
 
-        cout<<"\nSubject "<<i<<" Name : ";
-        getline(cin,name);
+        cout<<"\nSubject "<<i<<" Name    : ";
+        getline(cin,sub);
 
-        cout<<"Marks          : ";
-        cin>>mark;
+        cout<<"Teacher Initial : ";
+        getline(cin,teach);
 
-        if(mark<0 || mark>100){
-            cout<<"Invalid Marks!\n";
-            return;
-        }
-
-        s.sub.push_back({name,mark});
+        s.info.push_back(
+            {sub,0,teach}
+        );
     }
 
     students.push_back(s);
@@ -159,7 +161,6 @@ void addStudent(){
     cout<<"\nStudent Added Successfully!\n";
 }
 
-// ---------- Show ----------
 void showAll(){
 
     if(students.empty()){
@@ -167,19 +168,22 @@ void showAll(){
         return;
     }
 
-    cout<<"\n========== Student List ==========\n";
+    cout<<"\n========== ALL STUDENTS ==========\n";
 
     for(auto s:students){
 
-        cout<<"\nID      : "<<s.id;
-        cout<<"\nName    : "<<s.name;
+        cout<<"\nID   : "<<s.id;
+        cout<<"\nName : "<<s.name;
         cout<<"\nSubjects:\n";
 
-        for(auto x:s.sub)
+        for(auto x:s.info)
             cout<<"   "
-                <<setw(30)<<left
-                <<x.first
-                <<x.second<<endl;
+                <<setw(15)<<left
+                <<get<0>(x)
+                <<get<1>(x)
+                <<" ("
+                <<get<2>(x)
+                <<")\n";
 
         cout<<"Average : "
             <<fixed<<setprecision(2)
@@ -189,7 +193,56 @@ void showAll(){
     }
 }
 
-// ---------- Sort ----------
+void searchStudent(){
+
+    string id;
+    cout<<"Enter ID: ";
+    cin>>id;
+
+    int idx=getIndex(id);
+
+    if(idx==-1){
+        cout<<"Not Found!\n";
+        return;
+    }
+
+    Student s=students[idx];
+
+    cout<<"\nID   : "<<s.id;
+    cout<<"\nName : "<<s.name;
+    cout<<"\nSubjects:\n";
+
+    for(auto x:s.info)
+        cout<<"   "
+            <<setw(15)<<left
+            <<get<0>(x)
+            <<get<1>(x)
+            <<" ("
+            <<get<2>(x)
+            <<")\n";
+
+    cout<<"Average : "<<avg(s)<<endl;
+}
+
+void deleteStudent(){
+
+    string id;
+    cout<<"Enter ID: ";
+    cin>>id;
+
+    int idx=getIndex(id);
+
+    if(idx==-1){
+        cout<<"Not Found!\n";
+        return;
+    }
+
+    students.erase(students.begin()+idx);
+    saveFile();
+
+    cout<<"Deleted Successfully!\n";
+}
+
 void sortStudent(){
 
     sort(students.begin(),students.end(),
@@ -197,326 +250,435 @@ void sortStudent(){
             return avg(a)>avg(b);
         });
 
-    cout<<"\n===== Sorted By Average =====\n";
     showAll();
 }
-
-// ---------- Search ----------
-void searchStudent(){
-
-    int op;
-    bool found=false;
-
-    cout<<"\n1. Search By ID\n";
-    cout<<"2. Search By Name\n";
-    cout<<"Choice: ";
-    cin>>op;
-
-    string key;
-
-    if(op==1){
-        cout<<"Enter ID: ";
-        cin>>key;
-    }
-    else if(op==2){
-        cin.ignore();
-        cout<<"Enter Name: ";
-        getline(cin,key);
-    }
-    else{
-        cout<<"Invalid Choice!\n";
-        return;
-    }
-
-    cout<<"\n========== Search Result ==========\n";
-
-    for(auto s:students){
-
-        if((op==1 && s.id==key) ||
-           (op==2 && s.name==key)){
-
-            cout<<"\nID      : "<<s.id<<endl;
-            cout<<"Name    : "<<s.name<<endl;
-            cout<<"Subjects:\n";
-
-            for(auto x:s.sub)
-                cout<<"   "
-                    <<setw(30)<<left
-                    <<x.first
-                    <<x.second
-                    <<endl;
-
-            cout<<"Average : "
-                <<fixed<<setprecision(2)
-                <<avg(s)<<endl;
-
-            cout<<"---------------------------\n";
-
-            found=true;
-        }
-    }
-
-    if(!found)
-        cout<<"Not Found!\n";
-}
-// ---------- Update ----------
+// ---------- Update Student ----------
 void updateStudent(){
 
-    string key;
+    string id;
+    cout<<"Enter Student ID: ";
+    cin>>id;
 
-    cout<<"Enter ID: ";
-    cin>>key;
+    int idx=getIndex(id);
 
-    for(auto &s:students)
-        if(s.id==key){
-
-            cin.ignore();
-
-            cout<<"New Name: ";
-            getline(cin,s.name);
-
-            for(auto &x:s.sub){
-                cout<<x.first<<" Marks: ";
-                cin>>x.second;
-            }
-
-            saveFile();
-
-            cout<<"Updated Successfully!\n";
-            return;
-        }
-
-    cout<<"ID Not Found!\n";
-}
-
-// ---------- Delete ----------
-void deleteStudent(){
-
-    string key;
-
-    cout<<"Enter ID: ";
-    cin>>key;
-
-    auto old=students.size();
-
-    students.erase(
-        remove_if(students.begin(),students.end(),
-        [&](Student s){
-            return s.id==key;
-        }),
-        students.end()
-    );
-
-    if(students.size()<old){
-        saveFile();
-        cout<<"Deleted Successfully!\n";
+    if(idx==-1){
+        cout<<"Student Not Found!\n";
+        return;
     }
-    else cout<<"ID Not Found!\n";
-}
-
-// ---------- Subject Menu ----------
-void subjectMenu(){
 
     int ch;
 
     do{
-        cout<<"\n========== Subject Menu ==========\n";
-        cout<<"1. subject wise all student mark\n";
-        cout<<"2. Highest Marks\n";
-        cout<<"3. Average Marks\n";
-        cout<<"4. Fail Students\n";
-        cout<<"5. Marks Range Search\n";
+        cout<<"\n====== UPDATE STUDENT ======\n";
+        cout<<"1. Change Name\n";
+        cout<<"2. Change ID\n";
+        cout<<"3. Change Subject Name\n";
+        cout<<"4. Change Teacher Initial\n";
+        cout<<"5. Add New Subject\n";
         cout<<"0. Back\n";
         cout<<"Choice: ";
         cin>>ch;
 
-        if(ch==0) return;
-
-        string subject=chooseSubject();
-
-        if(subject=="") return;
-
-  //subject wise all student mark
+        // 1 Change Name
         if(ch==1){
 
-    vector<pair<string,double>> list;
+            cin.ignore();
 
-    for(auto s:students)
-        for(auto x:s.sub)
-            if(x.first==subject)
-                list.push_back({s.name,x.second});
+            cout<<"Enter New Name: ";
+            getline(cin,students[idx].name);
 
-    sort(list.begin(),list.end(),
-        [](auto a,auto b){
-            return a.second>b.second;
-        });
-
-    cout<<"\n===== "<<subject<<" Ranking =====\n";
-
-    for(int i=0;i<list.size();i++)
-        cout<<i+1<<". "
-            <<setw(30)<<left
-            <<list[i].first
-            <<list[i].second
-            <<endl;
-
-    if(list.empty())
-        cout<<"No Data Found!\n";
-}
-
-        // Highest
-        if(ch==2){
-
-            string best="";
-            double mx=-1;
-
-            for(auto s:students)
-                for(auto x:s.sub)
-                    if(x.first==subject &&
-                       x.second>mx){
-                        mx=x.second;
-                        best=s.name;
-                    }
-
-            cout<<"\nTop Student In "<<subject<<"\n";
-            cout<<"Name  : "<<best<<endl;
-            cout<<"Marks : "<<mx<<endl;
+            saveFile();
+            cout<<"Name Updated!\n";
         }
 
-        // Average
+        // 2 Change ID
+        else if(ch==2){
+
+            string newID;
+
+            cout<<"Enter New ID: ";
+            cin>>newID;
+
+            if(getIndex(newID)!=-1){
+                cout<<"ID Already Exists!\n";
+            }
+            else{
+                students[idx].id=newID;
+                saveFile();
+                cout<<"ID Updated!\n";
+            }
+        }
+
+        // 3 Change Subject Name
         else if(ch==3){
 
-            double sum=0;
-            int c=0;
+            for(int i=0;i<students[idx].info.size();i++)
+                cout<<i+1<<". "
+                    <<get<0>(students[idx].info[i])
+                    <<endl;
 
-            for(auto s:students)
-                for(auto x:s.sub)
-                    if(x.first==subject){
-                        sum+=x.second;
-                        c++;
-                    }
+            int op;
+            cout<<"Choose Subject: ";
+            cin>>op;
 
-            cout<<"\nSubject : "<<subject<<endl;
-            cout<<"Average : "<<sum/c<<endl;
+            if(op>=1 && op<=students[idx].info.size()){
+
+                string sub;
+                cin.ignore();
+
+                cout<<"Enter New Subject Name: ";
+                getline(cin,sub);
+
+                get<0>(students[idx].info[op-1])=sub;
+
+                saveFile();
+                cout<<"Subject Updated!\n";
+            }
         }
 
-        // Fail
+        // 4 Change Teacher Initial
         else if(ch==4){
+
+            for(int i=0;i<students[idx].info.size();i++)
+                cout<<i+1<<". "
+                    <<get<0>(students[idx].info[i])
+                    <<" ("
+                    <<get<2>(students[idx].info[i])
+                    <<")\n";
+
+            int op;
+            cout<<"Choose Subject: ";
+            cin>>op;
+
+            if(op>=1 && op<=students[idx].info.size()){
+
+                string ini;
+                cout<<"Enter New Initial: ";
+                cin>>ini;
+
+                get<2>(students[idx].info[op-1])=ini;
+
+                saveFile();
+                cout<<"Teacher Initial Updated!\n";
+            }
+        }
+
+        // 5 Add New Subject
+        else if(ch==5){
+
+            string sub,ini;
+
+            cin.ignore();
+
+            cout<<"Enter Subject Name: ";
+            getline(cin,sub);
+
+            cout<<"Enter Teacher Initial: ";
+            getline(cin,ini);
+
+            students[idx].info.push_back(
+                {sub,0,ini}
+            );
+
+            saveFile();
+            cout<<"New Subject Added!\n";
+        }
+
+    }while(ch!=0);
+}
+
+void adminPanel(){
+
+    string pass;
+
+    cout<<"\nEnter Admin Password: ";
+    cin>>pass;
+
+    if(pass!=adminPass){
+        cout<<"Wrong Password!\n";
+        return;
+    }
+
+    int ch;
+
+    do{
+        cout<<"\n========== ADMIN PANEL ==========\n";
+        cout<<"1. Add Student\n";
+        cout<<"2. Show All Students\n";
+        cout<<"3. Search Student\n";
+        cout<<"4. Delete Student\n";
+        cout<<"5. Sort By Average\n";
+        cout<<"6. Update student\n";
+        cout<<"0. Back\n";
+        cout<<"Choice: ";
+        cin>>ch;
+
+        switch(ch){
+
+            case 1:addStudent(); break;
+            case 2:showAll(); break;
+            case 3:searchStudent(); break;
+            case 4:deleteStudent(); break;
+            case 5:sortStudent(); break;
+            case 6:updateStudent(); break;
+        }
+
+    }while(ch!=0);
+}
+
+// =================================================
+// FACULTY PANEL
+// =================================================
+
+void facultyPanel(){
+
+    string ini,pass;
+
+    cout<<"\nEnter Faculty Initial : ";
+    cin>>ini;
+
+    cout<<"Enter Password        : ";
+    cin>>pass;
+
+    if(pass!=ini+to_string(123)){
+        cout<<"Wrong Password!\n";
+        return;
+    }
+
+    int ch;
+
+    do{
+        cout<<"\n========== FACULTY PANEL ==========\n";
+        cout<<"Login As : "<<ini<<endl;
+        cout<<"1. Add / Update Marks\n";
+        cout<<"2. Show My Students\n";
+        cout<<"3. Ranking\n";
+        cout<<"4. pass student\n";
+        cout<<"5. Failed student\n";
+        cout<<"0. Back\n";
+        cout<<"Choice: ";
+        cin>>ch;
+
+        // 1.Add Marks
+        if(ch==1){
+
+            string id;
+            cout<<"Enter Student ID: ";
+            cin>>id;
+
+            int idx=getIndex(id);
+
+            if(idx==-1){
+                cout<<"Student Not Found!\n";
+                continue;
+            }
 
             bool found=false;
 
-            cout<<"\nFail Students In "<<subject<<"\n";
+            for(auto &x:students[idx].info){
+
+                if(get<2>(x)==ini){
+
+                    cout<<get<0>(x)
+                        <<" Marks: ";
+
+                    cin>>get<1>(x);
+
+                    if(get<1>(x)<0 ||
+                       get<1>(x)>100){
+
+                        cout<<"Invalid Marks!\n";
+                        break;
+                    }
+
+                    found=true;
+                }
+            }
+
+            if(found){
+                saveFile();
+                cout<<"Marks Updated!\n";
+            }
+            else cout<<"No Subject Assigned!\n";
+        }
+
+        // 2.Show My Students
+        else if(ch==2){
+            cout<<"\nAssigned Students:\n";
 
             for(auto s:students)
-                for(auto x:s.sub)
-                    if(x.first==subject &&
-                       x.second<40){
-
-                        cout<<"- "
+                for(auto x:s.info){
+                    if(get<2>(x)==ini)
+                        cout<<setw(20)<<left
                             <<s.name
-                            <<" = "
-                            <<x.second
+                            <<" "
+                            <<'\n'<< "Mark: "
+                            <<get<1>(x)
+                            <<endl;
+                }
+        }
+
+        // 3.Ranking
+        else if(ch==3){
+
+            vector<pair<string,double>> list;
+            string sub="";
+
+            for(auto s:students)
+                for(auto x:s.info)
+                    if(get<2>(x)==ini){
+
+                        list.push_back(
+                            {s.name,get<1>(x)}
+                        );
+
+                        sub=get<0>(x);
+                    }
+
+            sort(list.begin(),list.end(),
+                [](auto a,auto b){
+                    return a.second>b.second;
+                });
+
+            cout<<"\n===== "<<sub<<" Ranking =====\n";
+
+            for(int i=0;i<list.size();i++)
+                cout<<i+1<<". "
+                    <<setw(30)<<left
+                    <<list[i].first
+                    <<"Mark:"
+                    <<list[i].second
+                    <<endl;
+        }
+         // 4 Pass List
+        else if(ch==4){
+            cout<<"\n===== Pass Student List =====\n";
+
+            bool found=false;
+
+            for(auto s:students)
+                for(auto x:s.info)
+                    if(get<2>(x)==ini &&
+                       get<1>(x)>=40){
+
+                            cout<<setw(30)<<left
+                            <<s.name
+                            <<"Mark:"
+                            <<get<1>(x)
                             <<endl;
 
                         found=true;
                     }
 
             if(!found)
-                cout<<"No Fail Student.\n";
+                cout<<"No Pass Student Found!\n";
         }
 
-        // Range
+        // 5 Fail List
         else if(ch==5){
+            cout<<"\n===== Fail Student List =====\n";
 
-            double low,high;
-            int c=0;
-
-            cout<<"Enter Range: ";
-            cin>>low>>high;
-
-            cout<<"\nStudents Between "
-                <<low<<" - "<<high
-                <<" In "<<subject<<"\n";
+            bool found=false;
 
             for(auto s:students)
-                for(auto x:s.sub)
-                    if(x.first==subject &&
-                       x.second>=low &&
-                       x.second<=high){
+                for(auto x:s.info)
+                    if(get<2>(x)==ini &&
+                       get<1>(x)<40){
 
-                        cout<<++c<<". "
+                        cout<<setw(30)<<left
                             <<s.name
-                            <<" = "
-                            <<x.second
+                            <<"Mark:"
+                            <<get<1>(x)
                             <<endl;
+
+                        found=true;
                     }
 
-            if(c==0)
-                cout<<"No Student Found!\n";
+            if(!found)
+                cout<<"No Fail Student Found!\n";
         }
 
-    }while(true);
+    }while(ch!=0);
 }
-// ---------- Compare Sorting ----------
-void compareSort() {
 
-    if (students.empty()) {
-        cout << "No Data Found!\n";
+// =================================================
+// STUDENT PANEL
+// =================================================
+
+void studentPanel(){
+
+    string id;
+    cout<<"\nEnter Student ID: ";
+    cin>>id;
+
+    int idx=getIndex(id);
+
+    if(idx==-1){
+        cout<<"Invalid ID!\n";
         return;
     }
 
-    vector<Student> a = students;
-    vector<Student> b = students;
+    int ch;
 
-    clock_t start, end;
+    do{
+        cout<<"\n========== STUDENT PANEL ==========\n";
+        cout<<"Welcome, "<<students[idx].name<<endl;
+        cout<<"1. Show My Result\n";
+        cout<<"2. Subject Performance\n";
+        cout<<"0. Back\n";
+        cout<<"Choice: ";
+        cin>>ch;
 
-    // Bubble Sort
-    start = clock();
+        Student s=students[idx];
 
-    for (int i = 0; i < a.size() - 1; i++) {
-        for (int j = 0; j < a.size() - i - 1; j++) {
+        if(ch==1){
 
-            if (avg(a[j]) < avg(a[j + 1])) {
-                swap(a[j], a[j + 1]);
-            }
+            cout<<"\nID   : "<<s.id;
+            cout<<"\nName : "<<s.name;
+            cout<<"\nSubjects:\n";
+
+            for(auto x:s.info)
+                cout<<"   "
+                    <<setw(15)<<left
+                    <<get<0>(x)
+                    <<get<1>(x)
+                    <<endl;
+
+            cout<<"Average : "<<avg(s)<<endl;
         }
-    }
 
-    end = clock();
+        else if(ch==2){
 
-    double bubbleTime =
-        double(end - start) / CLOCKS_PER_SEC;
+            string best="",low="";
+            double mx=-1,mn=101;
 
-    // STL Sort
-    start = clock();
+            for(auto x:s.info){
 
-    sort(b.begin(), b.end(),
-        [](Student x, Student y) {
-            return avg(x) > avg(y);
-        });
+                if(get<1>(x)>mx){
+                    mx=get<1>(x);
+                    best=get<0>(x);
+                }
 
-    end = clock();
+                if(get<1>(x)<mn){
+                    mn=get<1>(x);
+                    low=get<0>(x);
+                }
+            }
 
-    double stlTime =
-        double(end - start) / CLOCKS_PER_SEC;
+            cout<<"\nHighest Subject : "
+                <<best<<" = "<<mx<<endl;
 
-    // Output
-    cout << "\n====== Sort Comparison ======\n";
-    cout << "Bubble Sort Time : "
-         << bubbleTime
-         << " sec\n";
+            cout<<"Lowest Subject  : "
+                <<low<<" = "<<mn<<endl;
+        }
 
-    cout << "STL Sort Time    : "
-         << stlTime
-         << " sec\n";
-
-    if (bubbleTime > stlTime)
-        cout << "Winner : STL Sort Faster\n";
-    else
-        cout << "Winner : Bubble Sort Faster\n";
+    }while(ch!=0);
 }
 
-// ---------- Main ----------
+// =================================================
+// MAIN
+// =================================================
+
 int main(){
 
     loadFile();
@@ -524,31 +686,22 @@ int main(){
     int ch;
 
     do{
-        cout<<"\n=================================\n";
-        cout<<"      STUDENT ORGANIZER SYSTEM   \n";
-        cout<<"=================================\n";
-        cout<<"1. Add Student\n";
-        cout<<"2. Show All Students\n";
-        cout<<"3. Sort By Average\n";
-        cout<<"4. Search Student\n";
-        cout<<"5. Update Student\n";
-        cout<<"6. Delete Student\n";
-        cout<<"7. Subject Menu\n";
-        cout<<"8. Compare Sorting\n";
+        cout<<"\n====================================\n";
+        cout<<"   STUDENT MARK ORGANIZER SYSTEM\n";
+        cout<<"====================================\n";
+        cout<<"1. Admin Panel\n";
+        cout<<"2. Faculty Panel\n";
+        cout<<"3. Student Panel\n";
         cout<<"0. Exit\n";
-        cout<<"---------------------------------\n";
+        cout<<"------------------------------------\n";
         cout<<"Enter Choice: ";
         cin>>ch;
 
         switch(ch){
-            case 1:addStudent(); break;
-            case 2:showAll(); break;
-            case 3:sortStudent(); break;
-            case 4:searchStudent(); break;
-            case 5:updateStudent(); break;
-            case 6:deleteStudent(); break;
-            case 7:subjectMenu(); break;
-            case 8:compareSort(); break;
+
+            case 1:adminPanel(); break;
+            case 2:facultyPanel(); break;
+            case 3:studentPanel(); break;
             case 0:cout<<"Program Ended.\n"; break;
             default:cout<<"Invalid Choice!\n";
         }
